@@ -3,7 +3,7 @@ __pycache__/
 *.pyc
 
 # Config sensitive
-config.py
+
 
 # System files
 .DS_Store
