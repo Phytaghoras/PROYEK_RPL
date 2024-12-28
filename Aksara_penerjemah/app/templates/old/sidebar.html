@@ -1,0 +1,17 @@
+<div class="sidebar-logo">
+  <img src="{{ url_for('static', filename='your-logo.png') }}" alt="Your logo">
+</div>
+
+<ul class="sidebar-menu">
+  <li class="sidebar-item"><i class="sidebar-icon fas fa-home"></i> <a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+  <li class="sidebar-item"><i class="sidebar-icon fas fa-translator"></i> <a href="{{ url_for('main.translasi') }}">Translasi Kalimat</a></li>
+  <li class="sidebar-item"><i class="sidebar-icon fas fa-language"></i><a href="{{ url_for('main.bahasa') }}">Daftar Kata</a></li>
+  <li class="sidebar-item"><i class="sidebar-icon fas fa-logs"></i><a href="#">Backup</a></li>
+  <li class="sidebar-item"><i class="sidebar-icon fas fa-language"></i><a href="{{ url_for('main.kelola') }}">Kelola User</a></li>
+</ul>
+
+<div class="user-menu">
+
+  <p><a href="{{ url_for('main.logout') }}">{{ current_user.nama_pengguna if current_user.is_authenticated else 'User' }}</a></p>
+
+</div>

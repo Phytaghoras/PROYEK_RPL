@@ -1,0 +1,14 @@
+# Python cache
+__pycache__/
+*.pyc
+
+# Config sensitive
+config.py
+
+# System files
+.DS_Store
+instance/
+migrations/
+
+# Virtual Environtment
+env/

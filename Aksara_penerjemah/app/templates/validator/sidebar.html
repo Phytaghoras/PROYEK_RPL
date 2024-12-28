@@ -1,0 +1,37 @@
+<div class="d-flex flex-column vh-100 bg-light p-3">
+  <!-- Logo -->
+  <div class="mb-4 text-center">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="img-fluid" style="max-width: 80%;">
+  </div>
+  
+  <!-- Menu -->
+  <ul class="nav flex-column">
+    <li class="nav-item mb-2">
+      <a href="{{ url_for('validator.validator_dashboard') }}" class="nav-link text-dark">
+        <i class="fas fa-home me-2"></i>Dashboard
+      </a>
+    </li>
+    <li class="nav-item mb-2">
+      <a href="{{ url_for('admin.kelola_user') }}" class="nav-link text-dark">
+        <i class="fas fa-file-alt me-2"></i>Daftar Kalimat
+      </a>
+    </li>
+    <li class="nav-item mb-2">
+      <a href="{{ url_for('admin.daftarkata') }}" class="nav-link text-dark">
+        <i class="fas fa-list me-2"></i>Daftar Kata
+      </a>
+    </li>
+    <li class="nav-item mb-2">
+      <a href="{{ url_for('validator.validasi_kata') }}" class="nav-link text-dark">
+        <i class="fas fa-list me-2"></i>Validasi
+      </a>
+    </li>
+  </ul>
+
+  <!-- User Menu -->
+  {% if current_user.is_authenticated %}
+  <div class="mt-auto text-center">
+    <a href="{{ url_for('main.logout') }}" title="Logout" class="btn btn-danger btn-sm w-100">{{ current_user.nama_pengguna }}</a>
+  </div>
+  {% endif %}
+</div>

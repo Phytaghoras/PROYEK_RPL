@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tambah User</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='kelola.css') }}">
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      {% include 'sidebar.html' %}
+    </div>
+    <div class="main-content">
+      <h1>Tambah User</h1>
+      <form action="{{ url_for('main.add_user') }}" method="POST">
+        <label>Nama Pengguna:</label>
+        <input type="text" name="nama_pengguna" placeholder="Type Here ..." required>
+        
+        <label>Password:</label>
+        <input type="password" name="kata_sandi" placeholder="Type Here ..." required>
+        
+        <label>Peran:</label>
+        <select name="peran" required>
+          <option value="" disabled selected>Pilih Peran</option>
+          {% for peran in daftar_peran %}
+            <option value="{{ peran }}">{{ peran }}</option>
+          {% endfor %}
+        </select>
+        
+        <button type="submit" class="control-btn submit-btn">Tambah</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

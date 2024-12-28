@@ -1,0 +1,43 @@
+<!-- dashboard.html -->
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Dashboard</title>
+  <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+  <div id="main" class="container">
+    <div class="sidebar" id="sidebar">
+      {% include 'sidebar.html' %}
+    </div>
+    <div class="main">
+      <h1>Dashboard</h1>
+      <div class="grid">
+        <div class="widget grid-item">
+          <h2>Daftar Kata</h2>
+          <h1>{{ jumlah_kata }}</h1> <!-- Menampilkan jumlah kata dalam format 3 digit -->
+          <h2>Kata</h2>
+        </div>
+        <div class="widget grid-item">
+          <h2>Daftar Kalimat</h2>
+          <h1>{{ jumlah_kalimat }}</h1> <!-- Menampilkan jumlah kalimat dalam format 3 digit -->
+          <h2>Kalimat</h2>
+        </div>
+        <div class="widget grid-item">
+          <h2>Daftar Varian</h2>
+          <h1>{{ jumlah_varian }}</h1> <!-- Menampilkan jumlah varian dalam format 2 digit -->
+          <h2>Varian</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const DASHBOARD_URL = "{{ url_for('main.dashboard') }}";
+    const TRANSLASI_URL = "{{ url_for('main.translasi') }}";
+  </script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>

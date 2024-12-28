@@ -1,0 +1,39 @@
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+  </div>
+  
+  <ul class="sidebar-menu">
+    {% if current_user.is_authenticated %}
+      {% if current_user.peran == 'admin' %}
+        <li class="sidebar-item"> <i class="sidebar-icon fas fa-home"></i>
+          <a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a>
+        </li>
+      {% elif current_user.peran == 'validator' %}
+        <li class="sidebar-item">
+          <a href="{{ url_for('validator.validator_dashboard') }}">Dashboard</a>
+        </li>
+      {% elif current_user.peran == 'kontributor' %}
+        <li class="sidebar-item">
+          <a href="{{ url_for('kontributor.kontributor_dashboard') }}">Dashboard</a>
+        </li>
+      {% else %}
+        <li class="sidebar-item">
+          <a href="{{ url_for('main.login') }}">Login</a>
+        </li>
+      {% endif %}
+    {% else %}
+      <li class="sidebar-item">
+        <a href="{{ url_for('main.login') }}">Login</a>
+      </li>
+    {% endif %}
+  </ul>
+  
+  {% if current_user.is_authenticated %}
+    <div class="user-menu">
+
+        <a href="{{ url_for('main.logout') }}">Logout</a>
+      </li>
+    </div>
+  {% endif %}
+</div>
