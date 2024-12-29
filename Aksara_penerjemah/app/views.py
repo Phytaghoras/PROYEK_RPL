@@ -394,6 +394,59 @@ def hapus_kata(id_kata):
     return redirect(url_for('admin.daftarkata'))
 
 
+# Fitur Eksport Kata ke CSV
+@admin_bp.route('/export/csv', methods=['GET'])
+def export_csv():
+    # Ambil data varians dan daftar kata dari database
+    varians = Varian.query.all()
+    daftar_kata = Kata.query.all()
+
+    if not varians or not daftar_kata:  # Cek jika data kosong
+        return Response(
+            "Tidak ada data untuk diekspor.",
+            status=400,
+            mimetype="text/plain"
+        )
+
+    # Membuat header CSV berdasarkan nama varians
+    header = [varian.nama_varian for varian in varians]
+
+    # Mengelompokkan kata berdasarkan id_kelompok
+    kelompok_ids = set(kata.id_kelompok for kata in daftar_kata)
+    rows = []
+
+    for id_kelompok in kelompok_ids:
+        row = []
+        for varian in varians:
+            # Filter kata sesuai id_kelompok dan jenis_varian
+            kata = next(
+                (
+                    k.konten
+                    for k in daftar_kata
+                    if k.id_kelompok == id_kelompok and k.jenis_varian == varian.nama_varian
+                ),
+                "-",  # Default jika tidak ada kata
+            )
+            row.append(kata)
+        rows.append(row)
+
+    # Membuat CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(header)  # Tulis header
+    writer.writerows(rows)  # Tulis data
+
+    # Return sebagai respons
+    output.seek(0)
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=daftar_kata.csv"},
+    )
+
+# Akhir Fitur Ekspor ke CSV
+
+
 @admin_bp.route('/tambah_user', methods=['POST'])
 def proses_tambah_user():
     username = request.form.get('username')
