@@ -446,6 +446,76 @@ def export_csv():
 
 # Akhir Fitur Ekspor ke CSV
 
+# Rute untuk mengunggah file CSV
+@admin_bp.route('/import/csv', methods=['POST'])
+def import_csv():
+    uploaded_file = request.files.get('file')
+
+    if not uploaded_file or not uploaded_file.filename.endswith('.csv'):
+        return jsonify({'status': 'error', 'message': 'Harap unggah file dalam format CSV.'}), 400
+
+    # Membaca file CSV
+    file_content = uploaded_file.stream.read().decode('utf-8')
+    csv_reader = csv.reader(io.StringIO(file_content))
+
+    # Ambil header
+    header = next(csv_reader, None)
+
+    if not header:
+        return jsonify({'status': 'error', 'message': 'File CSV kosong.'}), 400
+
+    # Ambil daftar varian dari database
+    daftar_varian = [varian.nama_varian for varian in Varian.query.all()]
+
+    # Validasi header
+    kolom_valid = [kolom for kolom in header if kolom in daftar_varian]
+
+    if len(kolom_valid) < 2:
+        return jsonify({'status': 'error', 'message': 'Minimal 2 header kolom harus sesuai dengan daftar varian.'}), 400
+
+    # Membaca data untuk preview
+    preview_data = []
+    total_rows = 0
+
+    for row in csv_reader:
+        if total_rows < 20:
+            preview_data.append(row)
+        total_rows += 1
+
+    return jsonify({
+        'status': 'success',
+        'message': 'Preview data tersedia.',
+        'preview': preview_data,
+        'total_rows': total_rows,
+        'valid_columns': kolom_valid
+    })
+
+# Rute untuk menyimpan data ke database setelah konfirmasi
+@admin_bp.route('/import/csv/confirm', methods=['POST'])
+def confirm_import_csv():
+    data = request.json
+
+    # Validasi data
+    if not data or 'rows' not in data or 'valid_columns' not in data:
+        return jsonify({'status': 'error', 'message': 'Data tidak valid.'}), 400
+
+    rows = data['rows']
+    valid_columns = data['valid_columns']
+
+    # Menambahkan data ke database
+    for row in rows:
+        for idx, column in enumerate(valid_columns):
+            kata = Kata(
+                konten=row[idx],
+                jenis_varian=column,
+                id_kelompok=1  # Misalkan semua data baru masuk kelompok default
+            )
+            db.session.add(kata)
+
+    db.session.commit()
+
+    return jsonify({'status': 'success', 'message': 'Data berhasil diimpor ke database.'})
+
 
 @admin_bp.route('/tambah_user', methods=['POST'])
 def proses_tambah_user():
