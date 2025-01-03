@@ -273,16 +273,17 @@ def hapus_kalimat(id_kalimat):
 @admin_bp.route('/Daftar_kata', methods=['GET', 'POST'])
 @login_required
 def daftarkata():
-    # # Validasi role Admin
-    # if session.get('role') != 'Admin':
-        # flash('Anda tidak memiliki akses ke halaman ini.', 'danger')      # Kode ini masih ada masalah
-    #     return redirect(url_for('main.login'))
-
+    
     if request.method == 'POST':
         varians = Varian.query.all()
         max_kelompok = db.session.query(func.max(Kata.id_kelompok)).scalar() or 0
         new_kelompok_id = max_kelompok + 1
         kata_valid_exists = False
+        kata_query = request.args.get('kata_query')
+        hasil_pencarian= None
+
+        if kata_query:
+            hasil_pencarian=Kata.query.filter(Kata.konten.like(f'%{kata_query}%')).all()
 
         try:
             for varian in varians:
@@ -321,13 +322,14 @@ def daftarkata():
     daftar_kata = pagination.items
     varians = Varian.query.all()
 
+    
     return render_template(
         'admin/Daftar_kata.html',
         varians=varians,
         daftar_kata=daftar_kata,
-        pagination=pagination
+        pagination=pagination,
     )
-
+    
 
 
 @admin_bp.route('/detail_kata/<int:id_kelompok>')
@@ -449,46 +451,72 @@ def export_csv():
 # Rute untuk mengunggah file CSV
 @admin_bp.route('/import/csv', methods=['POST'])
 def import_csv():
-    uploaded_file = request.files.get('file')
+    # Cek apakah file diunggah
+    if 'file' not in request.files:
+        flash('Tidak ada file yang diunggah.', 'error')
+        return redirect(url_for('admin.daftarkata'))
 
-    if not uploaded_file or not uploaded_file.filename.endswith('.csv'):
-        return jsonify({'status': 'error', 'message': 'Harap unggah file dalam format CSV.'}), 400
+    uploaded_file = request.files['file']
 
-    # Membaca file CSV
-    file_content = uploaded_file.stream.read().decode('utf-8')
-    csv_reader = csv.reader(io.StringIO(file_content))
+    # Cek apakah file memiliki ekstensi .csv
+    if not uploaded_file.filename.endswith('.csv'):
+        flash('File harus berformat CSV.', 'error')
+        return redirect(url_for('admin.daftarkata'))
 
-    # Ambil header
-    header = next(csv_reader, None)
+    # Baca file CSV
+    try:
+        file_content = uploaded_file.stream.read().decode('utf-8')
+        csv_reader = csv.reader(io.StringIO(file_content))
 
-    if not header:
-        return jsonify({'status': 'error', 'message': 'File CSV kosong.'}), 400
+        # Ambil header (baris pertama)
+        header = next(csv_reader)
+        header = [col.strip() for col in header]  # Bersihkan spasi di header
 
-    # Ambil daftar varian dari database
-    daftar_varian = [varian.nama_varian for varian in Varian.query.all()]
+        # Validasi header
+        daftar_varian = [varian.nama_varian for varian in Varian.query.all()]
+        kolom_valid = [col for col in header if col in daftar_varian]
 
-    # Validasi header
-    kolom_valid = [kolom for kolom in header if kolom in daftar_varian]
+        if len(kolom_valid) < 2:
+            flash('Minimal 2 kolom harus sesuai dengan varian yang ada.', 'error')
+            return redirect(url_for('admin.daftarkata'))
 
-    if len(kolom_valid) < 2:
-        return jsonify({'status': 'error', 'message': 'Minimal 2 header kolom harus sesuai dengan daftar varian.'}), 400
+        # Proses setiap baris data
+        total_rows = 0
+        for row in csv_reader:
+            if len(row) != len(header):
+                flash(f'Baris {total_rows + 1} tidak valid: jumlah kolom tidak sesuai.', 'warning')
+                continue
 
-    # Membaca data untuk preview
-    preview_data = []
-    total_rows = 0
+            # Buat kelompok baru
+            max_kelompok = db.session.query(func.max(Kata.id_kelompok)).scalar() or 0
+            new_kelompok_id = max_kelompok + 1
 
-    for row in csv_reader:
-        if total_rows < 20:
-            preview_data.append(row)
-        total_rows += 1
+            # Simpan data untuk setiap varian
+            for idx, kolom in enumerate(header):
+                if kolom in kolom_valid:
+                    konten = row[idx].strip()
+                    if konten:  # Hanya simpan jika konten tidak kosong
+                        kata_baru = Kata(
+                            konten=konten,
+                            id_kelompok=new_kelompok_id,
+                            jenis_varian=kolom,
+                            status_validasi=False,
+                            created_by=current_user.id_pengguna,
+                            created_at=datetime.utcnow()
+                        )
+                        db.session.add(kata_baru)
+                        total_rows += 1
 
-    return jsonify({
-        'status': 'success',
-        'message': 'Preview data tersedia.',
-        'preview': preview_data,
-        'total_rows': total_rows,
-        'valid_columns': kolom_valid
-    })
+        # Commit ke database
+        db.session.commit()
+        flash(f'{total_rows} kata berhasil diimpor.', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Gagal mengimpor CSV: {str(e)}', 'error')
+        logging.error(f'Error mengimpor CSV: {e}')
+
+    return redirect(url_for('admin.daftarkata'))
 
 # Rute untuk menyimpan data ke database setelah konfirmasi
 @admin_bp.route('/import/csv/confirm', methods=['POST'])

@@ -19,8 +19,8 @@
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Daftar Kata</h1>
                     <div class="d-flex justify-content-between">
-                        <button class="btn btn-success btn-sm" onclick="downloadCSV()">Download CSV</button>
-                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadCSVModal">Upload CSV</button>
+                        <div class="p-2"><button class="btn btn-success btn-sm " onclick="downloadCSV()">Download CSV</button></div>
+                        <div class="p-2"><button class="btn btn-primary btn-sm " data-bs-toggle="modal" data-bs-target="#uploadCSVModal">Upload CSV</button></div>
                     </div>
 <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal"
                         data-bs-target="#tambahKataModal">
@@ -29,7 +29,7 @@
                 </div>
 
                 <!-- Filter and Search -->
-                <div class="mb-3">
+                <!-- <div class="mb-3">
                     <label for="filterVarian" class="form-label">Filter berdasarkan Varian:</label>
                     <select id="filterVarian" class="form-select" onchange="filterTable()">
                         <option value="">Semua Varian</option>
@@ -41,7 +41,15 @@
                 <div class="mb-3">
                     <label for="searchInput" class="form-label">Cari Kata:</label>
                     <input type="text" id="searchInput" class="form-control" onkeyup="searchTable()" placeholder="Cari kata...">
-                </div>
+                </div> -->
+
+                <form method="POST">
+                    <div class="mb-3">
+                      <label for="kata_query" class="form-label">Cari Kata:</label>
+                      <input type="text" id="kata_query" name="kata_query" class="form-control" placeholder="Cari kata...">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Cari</button>
+                  </form>
 
                 <!-- Tabel daftar kata -->
                 <div class="table-responsive">
