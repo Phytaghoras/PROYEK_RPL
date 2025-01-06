@@ -130,31 +130,35 @@ def kelola_user():
     return render_template('admin/Kelola_user.html', users=users)
 
 
+# ----------------------
+# 1) Daftar Kalimat
+# ----------------------
 @admin_bp.route('/daftar_kalimat', methods=['GET', 'POST'])
+@login_required
 def daftar_kalimat():
     if request.method == 'POST':
-        # Generate id_kelompok baru
+        # Mirip penambahan kata, hanya ganti model = Kalimat
+        varians = Varian.query.all()
         max_kelompok = db.session.query(func.max(Kalimat.id_kelompok)).scalar() or 0
         new_kelompok_id = max_kelompok + 1
-
-        varians = Varian.query.all()
         kalimat_valid_exists = False
 
         try:
             for varian in varians:
                 konten = request.form.get(f'konten_{varian.nama_varian}', '').strip()
-                
-                if konten:
-                    kalimat_baru = Kalimat(
-                        konten=konten,
-                        id_kelompok=new_kelompok_id,
-                        status_validasi=False,
-                        created_by=current_user.id_pengguna,
-                        created_at=datetime.utcnow(),
-                        jenis_varian=varian.nama_varian
-                    )
-                    db.session.add(kalimat_baru)
-                    kalimat_valid_exists = True
+                if not konten:
+                    continue
+
+                kalimat_baru = Kalimat(
+                    konten=konten,
+                    id_kelompok=new_kelompok_id,
+                    status_validasi=False,
+                    created_by=session.get('id_pengguna'),
+                    created_at=datetime.utcnow(),
+                    jenis_varian=varian.nama_varian
+                )
+                db.session.add(kalimat_baru)
+                kalimat_valid_exists = True
 
             if kalimat_valid_exists:
                 db.session.commit()
@@ -165,21 +169,28 @@ def daftar_kalimat():
         except Exception as e:
             db.session.rollback()
             flash(f'Gagal menambahkan kalimat: {str(e)}', 'danger')
+            logging.error(f'Error menambahkan kalimat: {e}')
 
-    # Bagian GET request
+        return redirect(url_for('admin.daftar_kalimat'))
+
+    # GET request: Tampilkan data kalimat (pagination)
     page = request.args.get('page', 1, type=int)
-    per_page = 100
+    per_page = 10
     pagination = Kalimat.query.paginate(page=page, per_page=per_page, error_out=False)
     daftar_kalimat = pagination.items
     varians = Varian.query.all()
 
-    return render_template('admin/Daftar_kalimat.html', 
-                           varians=varians, 
-                           daftar_kalimat=daftar_kalimat, 
-                           pagination=pagination)
+    return render_template(
+        'admin/Daftar_kalimat.html',
+        varians=varians,
+        daftar_kalimat=daftar_kalimat,
+        pagination=pagination
+    )
 
 
-
+# ----------------------
+# 2) Edit Kalimat
+# ----------------------
 @admin_bp.route('/edit_kalimat/<int:id_kelompok>', methods=['POST'])
 def edit_kalimat(id_kelompok):
     kalimat_kelompok = Kalimat.query.filter_by(id_kelompok=id_kelompok).all()
@@ -189,18 +200,17 @@ def edit_kalimat(id_kelompok):
         for varian in varians:
             konten_baru = request.form.get(f'konten_{varian.nama_varian}', '').strip()
             
-            # Cari kata spesifik untuk varian ini
-            kalimat = next((k for k in kalimat_kelompok if k.jenis_varian == varian.nama_varian), None)
+            kalimat_item = next((k for k in kalimat_kelompok if k.jenis_varian == varian.nama_varian), None)
             
-            if kalimat and konten_baru:
-                # Update kata yang sudah ada
-                kalimat.konten = konten_baru
-                kalimat.updated_at = datetime.utcnow()
-                kalimat.updated_by = current_user.id_pengguna
-                kalimat.status_validasi = False
+            if kalimat_item and konten_baru:
+                # Update yang sudah ada
+                kalimat_item.konten = konten_baru
+                kalimat_item.updated_at = datetime.utcnow()
+                kalimat_item.updated_by = current_user.id_pengguna
+                kalimat_item.status_validasi = False
             elif konten_baru:
-                # Jika varian belum punya kata, buat kata baru
-                kalimat_baru = kalimat(
+                # Jika varian belum punya data, buat baru
+                kalimat_baru = Kalimat(
                     konten=konten_baru,
                     id_kelompok=id_kelompok,
                     jenis_varian=varian.nama_varian,
@@ -218,6 +228,10 @@ def edit_kalimat(id_kelompok):
     
     return redirect(url_for('admin.daftar_kalimat'))
 
+
+# ----------------------
+# 3) Hapus Kalimat
+# ----------------------
 @admin_bp.route('/hapus_kalimat/<int:id_kalimat>', methods=['POST'])
 def hapus_kalimat(id_kalimat):
     kalimat = Kalimat.query.get_or_404(id_kalimat)
@@ -228,8 +242,187 @@ def hapus_kalimat(id_kalimat):
     except Exception as e:
         db.session.rollback()
         flash(f'Error: {str(e)}', 'danger')
+    return redirect(url_for('admin.daftar_kalimat'))
+
+
+# ----------------------
+# 4) Pencarian Kalimat
+# ----------------------
+@admin_bp.route('/cari_kalimat', methods=['GET'])
+@login_required
+def cari_kalimat():
+    kalimat_query = request.args.get('kalimat_query', '').strip()
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+
+    if kalimat_query:
+        query = Kalimat.query.filter(Kalimat.konten.ilike(f'%{kalimat_query}%'))
+    else:
+        query = Kalimat.query
+
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    daftar_kalimat = pagination.items
+    varians = Varian.query.all()
+
+    return render_template(
+        'admin/Daftar_kalimat.html',
+        varians=varians,
+        daftar_kalimat=daftar_kalimat,
+        pagination=pagination,
+        kalimat_query=kalimat_query
+    )
+
+
+# ----------------------
+# 5) Detail Kalimat (AJAX)
+# ----------------------
+@admin_bp.route('/detail_kalimat_data/<int:id_kelompok>', methods=['GET'])
+@login_required
+def detail_kalimat_data(id_kelompok):
+    kalimat_list = Kalimat.query.filter_by(id_kelompok=id_kelompok).all()
+    varians = Varian.query.all()
+
+    data_detail = []
+    for item in kalimat_list:
+        data_detail.append({
+            'konten': item.konten,
+            'jenis_varian': item.jenis_varian,
+            'status_validasi': item.status_validasi
+        })
+
+    data_varians = [v.nama_varian for v in varians]
+
+    return jsonify({
+        'detail_kalimat': data_detail,
+        'varians': data_varians
+    })
+
+
+# ----------------------
+# 6) Export CSV (Kalimat)
+# ----------------------
+@admin_bp.route('/export_kalimat/csv', methods=['GET'])
+def export_kalimat_csv():
+    varians = Varian.query.all()
+    daftar_kalimat = Kalimat.query.all()
+
+    if not varians or not daftar_kalimat:
+        return Response("Tidak ada data kalimat untuk diekspor.", status=400, mimetype="text/plain")
+
+    header = [varian.nama_varian for varian in varians]
+
+    # Mengelompokkan kalimat berdasarkan id_kelompok
+    kelompok_ids = set(k.id_kelompok for k in daftar_kalimat)
+    rows = []
+
+    for id_kel in kelompok_ids:
+        row = []
+        for var in varians:
+            kalimat_item = next(
+                (k.konten for k in daftar_kalimat 
+                 if k.id_kelompok == id_kel and k.jenis_varian == var.nama_varian),
+                "-"
+            )
+            row.append(kalimat_item)
+        rows.append(row)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(header)
+    writer.writerows(rows)
+
+    output.seek(0)
+    return Response(
+        output,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=daftar_kalimat.csv"}
+    )
+
+
+# ----------------------
+# 7) Import CSV (Kalimat)
+# ----------------------
+@admin_bp.route('/import_kalimat/csv', methods=['POST'])
+def import_kalimat_csv():
+    if 'file' not in request.files:
+        flash('Tidak ada file diunggah.', 'error')
+        return redirect(url_for('admin.daftar_kalimat'))
+
+    uploaded_file = request.files['file']
+    if not uploaded_file.filename.endswith('.csv'):
+        flash('File harus berformat CSV.', 'error')
+        return redirect(url_for('admin.daftar_kalimat'))
+
+    try:
+        file_content = uploaded_file.stream.read().decode('utf-8')
+        csv_reader = csv.reader(io.StringIO(file_content))
+
+        header = next(csv_reader)
+        header = [h.strip() for h in header]
+
+        daftar_varian = [v.nama_varian for v in Varian.query.all()]
+        kolom_valid = [h for h in header if h in daftar_varian]
+
+        if len(kolom_valid) < 2:
+            flash('Minimal 2 kolom varian yang valid.', 'error')
+            return redirect(url_for('admin.daftar_kalimat'))
+
+        total_rows = 0
+        for row in csv_reader:
+            if len(row) != len(header):
+                flash(f'Baris ke-{total_rows + 1} kolom tidak sesuai.', 'warning')
+                continue
+
+            max_kelompok = db.session.query(func.max(Kalimat.id_kelompok)).scalar() or 0
+            new_kelompok_id = max_kelompok + 1
+
+            for idx, kol in enumerate(header):
+                if kol in kolom_valid:
+                    konten = row[idx].strip()
+                    if konten:
+                        kalimat_baru = Kalimat(
+                            konten=konten,
+                            id_kelompok=new_kelompok_id,
+                            jenis_varian=kol,
+                            status_validasi=False,
+                            created_by=current_user.id_pengguna,
+                            created_at=datetime.utcnow()
+                        )
+                        db.session.add(kalimat_baru)
+                        total_rows += 1
+
+        db.session.commit()
+        flash(f'{total_rows} kalimat berhasil diimpor.', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Gagal import CSV kalimat: {str(e)}', 'error')
+        logging.error(f'Error import kalimat CSV: {e}')
 
     return redirect(url_for('admin.daftar_kalimat'))
+
+
+# ----------------------
+# 8) Hapus Terpilih (Mass Delete)
+# ----------------------
+@admin_bp.route('/hapus_terpilih_kalimat', methods=['POST'])
+@login_required
+def hapus_terpilih_kalimat():
+    data = request.get_json()
+    if not data or 'selected_ids' not in data:
+        return jsonify({'status': 'error', 'message': 'Tidak ada data ID terpilih.'}), 400
+
+    list_ids = data['selected_ids']
+    if not list_ids:
+        return jsonify({'status': 'error', 'message': 'List ID kosong.'}), 400
+
+    try:
+        Kalimat.query.filter(Kalimat.id_kalimat.in_(list_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'{len(list_ids)} kalimat berhasil dihapus.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 @admin_bp.route('/Daftar_kata', methods=['GET', 'POST'])
@@ -550,6 +743,30 @@ def confirm_import_csv():
     db.session.commit()
 
     return jsonify({'status': 'success', 'message': 'Data berhasil diimpor ke database.'})
+
+@admin_bp.route('/hapus_terpilih', methods=['POST'])
+@login_required
+def hapus_terpilih():
+    """
+    Menerima daftar id_kata melalui AJAX (JSON), lalu menghapusnya tanpa reload.
+    """
+    data = request.get_json()
+    if not data or 'selected_ids' not in data:
+        return jsonify({'status': 'error', 'message': 'Tidak ada data ID terpilih.'}), 400
+
+    list_ids = data['selected_ids']  # ex: [3, 5, 10]
+    if not list_ids:
+        return jsonify({'status': 'error', 'message': 'Daftar ID kosong.'}), 400
+
+    try:
+        # Hapus data yang ada di list
+        Kata.query.filter(Kata.id_kata.in_(list_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': f'{len(list_ids)} data berhasil dihapus.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 
 
 @admin_bp.route('/tambah_user', methods=['POST'])

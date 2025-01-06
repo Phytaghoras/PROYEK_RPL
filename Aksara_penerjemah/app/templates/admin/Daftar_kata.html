@@ -1,9 +1,38 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <title>Daftar Kata</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        /* ===============================
+           MODE SELECT CSS
+           =============================== */
+        /* Kolom checkbox kita beri class ".select-col" */
+        /* Kolom Aksi kita beri class ".aksi-col" */
+
+        /* Secara default, kolom checkbox disembunyikan */
+        .select-col {
+            display: none; 
+        }
+
+        /* Secara default, tombol Hapus Terpilih juga disembunyikan */
+        #hapusTerpilihBtn {
+            display: none;
+        }
+
+        /* Saat .mode-select aktif di <body>, tampilkan checkbox, sembunyikan kolom aksi */
+        .mode-select .select-col {
+            display: table-cell !important; /* override display */
+        }
+        .mode-select .aksi-col {
+            display: none !important;
+        }
+        .mode-select #hapusTerpilihBtn {
+            display: inline-block; 
+        }
+    </style>
+
 </head>
 
 <body>
@@ -16,39 +45,44 @@
 
             <!-- Main Content -->
             <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4" style="height: 100vh; overflow-y: auto;">
+                
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    
                     <h1 class="h2">Daftar Kata</h1>
+                    
                     <div class="d-flex justify-content-between">
-                        <div class="p-2"><button class="btn btn-success btn-sm " onclick="downloadCSV()">Download CSV</button></div>
-                        <div class="p-2"><button class="btn btn-primary btn-sm " data-bs-toggle="modal" data-bs-target="#uploadCSVModal">Upload CSV</button></div>
+                        <!-- Tombol Download / Upload CSV -->
+                        <div class="p-2">
+                            <button class="btn btn-success btn-sm" onclick="downloadCSV()">Download CSV</button>
+                        </div>
+                        <div class="p-2">
+                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#uploadCSVModal">
+                                Upload CSV
+                            </button>
+                        </div>
                     </div>
-<button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal"
-                        data-bs-target="#tambahKataModal">
+
+                    <!-- Tombol "Pilih Data" & "Hapus Terpilih" (Baru) -->
+                    <button id="pilihDataBtn" class="btn btn-info btn-sm me-2" onclick="toggleModeSelect()">
+                        Pilih Data
+                    </button>
+                    <button id="hapusTerpilihBtn" class="btn btn-danger btn-sm" onclick="hapusTerpilih()">
+                        Hapus Terpilih
+                    </button>
+
+                    <!-- Tombol Tambah Kata -->
+                    <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#tambahKataModal">
                         Tambah Kata
                     </button>
                 </div>
 
-                <!-- Filter and Search -->
-                <!-- <div class="mb-3">
-                    <label for="filterVarian" class="form-label">Filter berdasarkan Varian:</label>
-                    <select id="filterVarian" class="form-select" onchange="filterTable()">
-                        <option value="">Semua Varian</option>
-                        {% for varian in varians %}
-                        <option value="{{ varian.nama_varian }}">{{ varian.nama_varian }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label for="searchInput" class="form-label">Cari Kata:</label>
-                    <input type="text" id="searchInput" class="form-control" onkeyup="searchTable()" placeholder="Cari kata...">
-                </div> -->
-
+                <!-- Form Cari Kata -->
                 <form method="GET" action="{{ url_for('admin.cari_kata') }}">
                     <div class="mb-3">
-                      <label for="kata_query" class="form-label">Cari Kata:</label>
-                      <input type="text" id="kata_query" name="kata_query" class="form-control" 
-                             placeholder="Cari kata..." 
-                             value="{{ kata_query if kata_query else '' }}">
+                        <label for="kata_query" class="form-label">Cari Kata:</label>
+                        <input type="text" id="kata_query" name="kata_query" class="form-control" 
+                                placeholder="Cari kata..." 
+                                value="{{ kata_query if kata_query else '' }}">
                     </div>
                     <button type="submit" class="btn btn-primary">Cari</button>
                 </form>
@@ -58,34 +92,50 @@
                     <table class="table table-striped table-hover" id="kataTable">
                         <thead>
                             <tr>
+                                <!-- Kolom checkbox -->
+                                <th class="select-col"></th>
                                 <th>No</th>
                                 <th>Varian</th>
                                 <th>Kata</th>
                                 <th>Status Validasi</th>
-                                <th>Aksi</th>
+                                <th class="aksi-col">Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% if daftar_kata %}
                                 {% for kata in daftar_kata %}
-                                <tr>
+                                <tr id="row-{{ kata.id_kata }}">
+                                    <!-- Cell checkbox -->
+                                    <td class="select-col">
+                                        <input type="checkbox" class="form-check-input pilih-item" value="{{ kata.id_kata }}">
+                                    </td>
+
                                     <td>{{ loop.index }}</td>
                                     <td>{{ kata.jenis_varian }}</td>
                                     <td>{{ kata.konten }}</td>
                                     <td>{{ "Tervalidasi" if kata.status_validasi else "Belum Validasi" }}</td>
-                                    <td>
+                                    <td class="aksi-col">
                                         <!-- Tombol aksi -->
                                         <div class="d-flex gap-2">
+                                            <!-- Tombol Edit -->
                                             <button class="btn btn-warning btn-sm" data-bs-toggle="modal"
-                                                data-bs-target="#editKataModal{{ kata.id_kata }}">Edit</button>
+                                                data-bs-target="#editKataModal{{ kata.id_kata }}">
+                                                Edit
+                                            </button>
+                                            
+                                            <!-- Tombol Hapus -->
                                             <button class="btn btn-danger btn-sm" data-bs-toggle="modal"
-                                                data-bs-target="#hapusKataModal{{ kata.id_kata }}">Hapus</button>
-                                                <button class="btn btn-info btn-sm"
-                                                onclick="fetchDetailKata({{ kata.id_kelompok }})">
-                                            Detail
-                                        </button>
-                                        
+                                                data-bs-target="#hapusKataModal{{ kata.id_kata }}">
+                                                Hapus
+                                            </button>
+
+                                            <!-- Tombol Detail (AJAX) -->
+                                            <button class="btn btn-info btn-sm"
+                                                    onclick="fetchDetailKata({{ kata.id_kelompok }})">
+                                                Detail
+                                            </button>
                                         </div>
+                                        
                                         <!-- Modal Edit -->
                                         <div class="modal fade" id="editKataModal{{ kata.id_kata }}" tabindex="-1"
                                             aria-labelledby="editKataModalLabel" aria-hidden="true">
@@ -96,17 +146,18 @@
                                                         <button type="button" class="btn-close" data-bs-dismiss="modal"
                                                             aria-label="Close"></button>
                                                     </div>
-                                                    <form
-                                                        action="{{ url_for('admin.edit_kata', id_kelompok=kata.id_kelompok) }}"
-                                                        method="POST">
+                                                    <form action="{{ url_for('admin.edit_kata', id_kelompok=kata.id_kelompok) }}"
+                                                          method="POST">
                                                         <div class="modal-body">
                                                             {% for varian in varians %}
                                                             <div class="mb-3">
                                                                 <label for="konten_{{ varian.nama_varian }}"
                                                                     class="form-label">{{ varian.nama_varian }}</label>
-                                                                {% set varian_kata = daftar_kata|selectattr('id_kelompok',
-                                                                'equalto', kata.id_kelompok)|selectattr('jenis_varian',
-                                                                'equalto', varian.nama_varian)|first %}
+                                                                {% set varian_kata = daftar_kata
+                                                                    |selectattr('id_kelompok','equalto', kata.id_kelompok)
+                                                                    |selectattr('jenis_varian','equalto', varian.nama_varian)
+                                                                    |first 
+                                                                %}
                                                                 <input type="text" class="form-control"
                                                                     id="konten_{{ varian.nama_varian }}"
                                                                     name="konten_{{ varian.nama_varian }}"
@@ -116,8 +167,10 @@
                                                         </div>
                                                         <div class="modal-footer">
                                                             <button type="button" class="btn btn-secondary"
-                                                                data-bs-dismiss="modal">Tutup</button>
-                                                            <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                                                                    data-bs-dismiss="modal">Tutup</button>
+                                                            <button type="submit" class="btn btn-primary">
+                                                                Simpan Perubahan
+                                                            </button>
                                                         </div>
                                                     </form>
                                                 </div>
@@ -131,14 +184,16 @@
                                                 <div class="modal-content">
                                                     <div class="modal-header">
                                                         <h5 class="modal-title" id="hapusKataModalLabel{{ kata.id_kata }}">
-                                                            Hapus Kata</h5>
+                                                            Hapus Kata
+                                                        </h5>
                                                         <button type="button" class="btn-close" data-bs-dismiss="modal"
                                                             aria-label="Close"></button>
                                                     </div>
                                                     <div class="modal-body">
-                                                        <p>Apakah Anda yakin ingin menghapus <strong>{{ kata.konten
-                                                                }}</strong> dari varian <strong>{{ kata.jenis_varian
-                                                                }}</strong>?</p>
+                                                        <p>Apakah Anda yakin ingin menghapus 
+                                                            <strong>{{ kata.konten }}</strong> 
+                                                            dari varian <strong>{{ kata.jenis_varian }}</strong>?
+                                                        </p>
                                                     </div>
                                                     <div class="modal-footer">
                                                         <form method="POST" action="{{ url_for('admin.hapus_kata', id_kata=kata.id_kata) }}">
@@ -150,29 +205,13 @@
                                                 </div>
                                             </div>
                                         </div>
-
-                                        <!-- Modal Detail -->
-                                        <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailKataModalLabel" aria-hidden="true">
-                                            <div class="modal-dialog modal-lg">
-                                                <div class="modal-content">
-                                                    <!-- Header -->
-                                                    <div class="modal-header">
-                                                        <h5 class="modal-title">Detail Kata</h5>
-                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                    </div>
                                         
-                                                    <!-- Body: Menampilkan data detail -->
-                                                    <div class="modal-body" id="detailModalBody">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
                                     </td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
                             <tr>
-                                <td colspan="5">Tidak ada data kata.</td>
+                                <td colspan="6">Tidak ada data kata.</td>
                             </tr>
                             {% endif %}
                         </tbody>
@@ -184,17 +223,23 @@
                     <ul class="pagination justify-content-center">
                         {% if pagination.has_prev %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('admin.daftarkata', page=pagination.prev_num) }}">Previous</a>
+                            <a class="page-link" href="{{ url_for('admin.daftarkata', page=pagination.prev_num) }}">
+                                Previous
+                            </a>
                         </li>
                         {% endif %}
                         {% for page_num in pagination.iter_pages() %}
                         <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                            <a class="page-link" href="{{ url_for('admin.daftarkata', page=page_num) }}">{{ page_num }}</a>
+                            <a class="page-link" href="{{ url_for('admin.daftarkata', page=page_num) }}">
+                                {{ page_num }}
+                            </a>
                         </li>
                         {% endfor %}
                         {% if pagination.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('admin.daftarkata', page=pagination.next_num) }}">Next</a>
+                            <a class="page-link" href="{{ url_for('admin.daftarkata', page=pagination.next_num) }}">
+                                Next
+                            </a>
                         </li>
                         {% endif %}
                     </ul>
@@ -243,7 +288,7 @@
         </div>
     </div>
 
-    <!-- Modal untuk Upload CSV -->
+    <!-- Modal Upload CSV -->
     <div class="modal fade" id="uploadCSVModal" tabindex="-1" aria-labelledby="uploadCSVModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -267,7 +312,7 @@
         </div>
     </div>
 
-    <!-- Modal untuk Preview Data -->
+    <!-- Modal Preview CSV -->
     <div class="modal fade" id="previewCSVModal" tabindex="-1" aria-labelledby="previewCSVModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -288,14 +333,53 @@
         </div>
     </div>
 
+    <!-- Modal Detail (untuk AJAX fetchDetailKata) -->
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailKataModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <!-- Header -->
+                <div class="modal-header">
+                    <h5 class="modal-title">Detail Kata</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <!-- Body: Menampilkan data detail -->
+                <div class="modal-body" id="detailModalBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Konfirmasi Mass Delete -->
+    <div class="modal fade" id="konfirmasiModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+
+          <div class="modal-header">
+            <h5 class="modal-title">Konfirmasi</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+
+          <div class="modal-body">
+            Apakah Anda yakin ingin menghapus <span id="jumlahTerpilih"></span> data terpilih?
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="button" class="btn btn-danger" onclick="submitHapusTerpilih()">Ya, Hapus</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        
-
+        // ===============================
+        // KODE UPLOAD CSV (sudah ada)
+        // ===============================
         function uploadCSV() {
             const fileInput = document.getElementById('csvFile');
             const file = fileInput.files[0];
-
             if (!file) {
                 alert('Harap pilih file CSV untuk diunggah.');
                 return;
@@ -308,39 +392,36 @@
                 method: 'POST',
                 body: formData
             })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        // Tampilkan preview data
-                        const previewContainer = document.getElementById('previewTableContainer');
-                        let tableHTML = '<table class="table table-bordered"><thead><tr>';
-
-                        // Tambahkan header
-                        data.valid_columns.forEach(col => {
-                            tableHTML += `<th>${col}</th>`;
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Tampilkan preview data
+                    const previewContainer = document.getElementById('previewTableContainer');
+                    let tableHTML = '<table class="table table-bordered"><thead><tr>';
+                    // Tambahkan header
+                    data.valid_columns.forEach(col => {
+                        tableHTML += `<th>${col}</th>`;
+                    });
+                    tableHTML += '</tr></thead><tbody>';
+                    // Tambahkan data baris
+                    data.preview.forEach(row => {
+                        tableHTML += '<tr>';
+                        row.forEach(cell => {
+                            tableHTML += `<td>${cell}</td>`;
                         });
-                        tableHTML += '</tr></thead><tbody>';
+                        tableHTML += '</tr>';
+                    });
+                    tableHTML += '</tbody></table>';
 
-                        // Tambahkan data baris
-                        data.preview.forEach(row => {
-                            tableHTML += '<tr>';
-                            row.forEach(cell => {
-                                tableHTML += `<td>${cell}</td>`;
-                            });
-                            tableHTML += '</tr>';
-                        });
-                        tableHTML += '</tbody></table>';
-
-                        previewContainer.innerHTML = tableHTML;
-
-                        // Tampilkan modal preview
-                        const previewModal = new bootstrap.Modal(document.getElementById('previewCSVModal'));
-                        previewModal.show();
-                    } else {
-                        alert(data.message);
-                    }
-                })
-                .catch(error => console.error('Error:', error));
+                    previewContainer.innerHTML = tableHTML;
+                    // Tampilkan modal preview
+                    const previewModal = new bootstrap.Modal(document.getElementById('previewCSVModal'));
+                    previewModal.show();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => console.error('Error:', error));
         }
 
         function confirmImport() {
@@ -359,57 +440,145 @@
                     valid_columns: validColumns // Kolom valid dari preview
                 })
             })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        alert(data.message);
-                    } else {
-                        alert(data.message);
-                    }
-                })
-                .catch(error => console.error('Error:', error));
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => console.error('Error:', error));
         }
 
+        // ===============================
+        // FUNGSI DETAIL (AJAX)
+        // ===============================
         function fetchDetailKata(idKelompok) {
-    // Panggil route AJAX JSON di server, misal "/admin/detail_kata_data/xxx"
-    fetch(`/admin/detail_kata_data/${idKelompok}`)
-        .then(response => response.json())
-        .then(data => {
-            /* 
-               data: { 
-                  detail_kata: [ { konten: "...", jenis_varian: "...", status_validasi: true/false }, ... ],
-                  varians: [ 'Varian1', 'Varian2', ... ]
-               } 
-            */
+            // Panggil route AJAX JSON: /admin/detail_kata_data/<idKelompok>
+            fetch(`/admin/detail_kata_data/${idKelompok}`)
+                .then(response => response.json())
+                .then(data => {
+                    /*
+                      data: {
+                        detail_kata: [ { konten: "...", jenis_varian: "...", status_validasi: bool }, ...],
+                        varians: [ 'Varian1', 'Varian2', ... ]
+                      }
+                    */
+                    // Buat tabel
+                    let tableHTML = '<table class="table table-bordered"><thead><tr>';
+                    data.varians.forEach(varian => {
+                        tableHTML += `<th>${varian}</th>`;
+                    });
+                    tableHTML += '</tr></thead><tbody><tr>';
 
-            // Buat tabel HTML
-            let tableHTML = '<table class="table table-bordered"><thead><tr>';
-            data.varians.forEach(varian => {
-                tableHTML += `<th>${varian}</th>`;
+                    data.varians.forEach(varian => {
+                        let item = data.detail_kata.find(k => k.jenis_varian === varian);
+                        tableHTML += `<td>${item ? item.konten : '-'}</td>`;
+                    });
+                    tableHTML += '</tr></tbody></table>';
+
+                    // Masukkan ke modal-body
+                    document.getElementById('detailModalBody').innerHTML = tableHTML;
+
+                    // Tampilkan modal
+                    let myModal = new bootstrap.Modal(document.getElementById('detailModal'));
+                    myModal.show();
+                })
+                .catch(err => {
+                    console.error('Error fetch detail:', err);
+                    alert('Gagal mengambil data detail.');
+                });
+        }
+
+        // ===============================
+        // MODE SELECT + HAPUS TERPILIH
+        // ===============================
+        let modeSelect = false; // menandakan apakah sedang mode pilih
+        function toggleModeSelect() {
+            modeSelect = !modeSelect;
+            document.body.classList.toggle('mode-select', modeSelect);
+
+            const btn = document.getElementById('pilihDataBtn');
+            if (modeSelect) {
+                btn.innerText = 'Batal';
+            } else {
+                btn.innerText = 'Pilih Data';
+                // Bersihkan semua checkbox
+                const checkboxes = document.querySelectorAll('.pilih-item');
+                checkboxes.forEach(ch => ch.checked = false);
+            }
+        }
+
+        function hapusTerpilih() {
+            // Pastikan kita sedang mode select
+            if (!modeSelect) {
+                alert("Aktifkan mode pilih data terlebih dahulu.");
+                return;
+            }
+
+            // Kumpulkan ID yang tercentang
+            const checkboxes = document.querySelectorAll('.pilih-item:checked');
+            if (checkboxes.length === 0) {
+                alert("Tidak ada data yang dipilih.");
+                return;
+            }
+            // Tampilkan modal konfirmasi
+            document.getElementById('jumlahTerpilih').innerText = checkboxes.length;
+            const confirmModal = new bootstrap.Modal(document.getElementById('konfirmasiModal'));
+            confirmModal.show();
+        }
+
+        function submitHapusTerpilih() {
+            // Ambil semua checkbox tercentang
+            const checkboxes = document.querySelectorAll('.pilih-item:checked');
+            if (checkboxes.length === 0) return;
+
+            // Kumpulkan ID
+            let ids = [];
+            checkboxes.forEach(ch => ids.push(parseInt(ch.value)));
+
+            // AJAX ke route hapus_terpilih (yang harus Anda buat di server Python)
+            fetch('/admin/hapus_terpilih', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selected_ids: ids })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Hapus baris di DOM
+                    ids.forEach(id => {
+                        let row = document.getElementById('row-' + id);
+                        if (row) row.remove();
+                    });
+                    // Tutup modal konfirmasi
+                    const confirmModalEl = document.getElementById('konfirmasiModal');
+                    const confirmModal = bootstrap.Modal.getInstance(confirmModalEl);
+                    confirmModal.hide();
+
+                    alert(data.message);
+
+                    // Keluar dari mode select
+                    toggleModeSelect();
+                } else {
+                    alert(data.message || 'Terjadi kesalahan.');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Gagal menghapus data.');
             });
-            tableHTML += '</tr></thead><tbody><tr>';
+        }
 
-            data.varians.forEach(varian => {
-                // Cari item detail_kata yang jenis_varian == varian
-                let item = data.detail_kata.find(k => k.jenis_varian === varian);
-                tableHTML += `<td>${item ? item.konten : '-'}</td>`;
-            });
-
-            tableHTML += '</tr></tbody></table>';
-
-            // Masukkan ke div modal-body
-            document.getElementById('detailModalBody').innerHTML = tableHTML;
-
-            // Tampilkan modal
-            let myModal = new bootstrap.Modal(document.getElementById('detailModal'));
-            myModal.show();
-        })
-        .catch(err => {
-            console.error('Error fetch detail:', err);
-            alert('Gagal mengambil data detail.');
-        });
-}
+        // ===============================
+        // (Opsional) CSV Download
+        // ===============================
+        function downloadCSV() {
+            // Aslinya: window.location = '/admin/export/csv'
+            // contoh simple:
+            window.location.href = '/admin/export/csv';
+        }
     </script>
 </body>
-
 </html>
