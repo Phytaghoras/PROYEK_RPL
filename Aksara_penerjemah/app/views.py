@@ -182,44 +182,6 @@ def daftar_kalimat():
 
 @admin_bp.route('/edit_kalimat/<int:id_kelompok>', methods=['POST'])
 def edit_kalimat(id_kelompok):
-    # # Ambil semua kalimat dalam kelompok yang sama
-    # kalimat_kelompok = Kalimat.query.filter_by(id_kelompok=id_kelompok).all()
-    # varians = Varian.query.all()
-    
-    # try:
-    #     for varian in varians:
-    #         konten_baru = request.form.get(f'konten_{varian.nama_varian}', '').strip()
-            
-    #         # Cari kalimat spesifik untuk varian ini
-    #         kalimat = next((k for k in kalimat_kelompok if k.jenis_varian == varian.nama_varian), None)
-            
-    #         if kalimat and konten_baru:
-    #             # Update kalimat yang sudah ada
-    #             kalimat.konten = konten_baru
-    #             kalimat.updated_at = datetime.utcnow()
-    #             kalimat.updated_by = current_user.id_pengguna
-    #             kalimat.status_validasi = False
-    #         elif konten_baru:
-    #             # Jika varian belum punya kalimat, buat kalimat baru
-    #             kalimat_baru = Kalimat(
-    #                 konten=konten_baru,
-    #                 id_kelompok=id_kelompok,
-    #                 jenis_varian=varian.nama_varian,
-    #                 status_validasi=False,
-    #                 created_by=current_user.id_pengguna,
-    #                 created_at=datetime.utcnow()
-    #             )
-    #             db.session.add(kalimat_baru)
-        
-    #     db.session.commit()
-    #     flash('Kalimat berhasil diperbarui.', 'success')
-    # except Exception as e:
-    #     db.session.rollback()
-    #     flash(f'Gagal memperbarui kalimat: {str(e)}', 'danger')
-    
-    # return redirect(url_for('admin.daftar_kalimat'))
-
-    # Ambil semua kata dalam kelompok yang sama
     kalimat_kelompok = Kalimat.query.filter_by(id_kelompok=id_kelompok).all()
     varians = Varian.query.all()
     
@@ -279,11 +241,7 @@ def daftarkata():
         max_kelompok = db.session.query(func.max(Kata.id_kelompok)).scalar() or 0
         new_kelompok_id = max_kelompok + 1
         kata_valid_exists = False
-        kata_query = request.args.get('kata_query')
-        hasil_pencarian= None
 
-        if kata_query:
-            hasil_pencarian=Kata.query.filter(Kata.konten.like(f'%{kata_query}%')).all()
 
         try:
             for varian in varians:
@@ -317,30 +275,79 @@ def daftarkata():
 
     # GET Request
     page = request.args.get('page', 1, type=int)
-    per_page = 50
+    per_page = 10
     pagination = Kata.query.paginate(page=page, per_page=per_page, error_out=False)
     daftar_kata = pagination.items
     varians = Varian.query.all()
+    detail_id = None  # atau definisikan sesuai kebutuhan
 
+    
+    return render_template(
+        'admin/Daftar_kata.html',
+    daftar_kata=daftar_kata,
+    pagination=pagination,
+    varians=varians,
+    detail_id=None,        # Jangan diisi apa pun selain None
+    detail_kata=[]
+    )
+    
+@admin_bp.route('/cari_kata', methods=['GET'])
+@login_required
+def cari_kata():
+    """
+    Route khusus untuk pencarian kata via GET
+    """
+    kata_query = request.args.get('kata_query', '').strip()
+    varians = Varian.query.all()
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    
+    if kata_query:
+        # Gunakan ilike untuk case-insensitive
+        query = Kata.query.filter(Kata.konten.ilike(f'%{kata_query}%'))
+    else:
+        # Jika tidak ada pencarian, kembalikan semua
+        query = Kata.query
+    
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    daftar_kata = pagination.items
     
     return render_template(
         'admin/Daftar_kata.html',
         varians=varians,
         daftar_kata=daftar_kata,
         pagination=pagination,
+        kata_query=kata_query  # Kirim kata_query ke template (opsional, utk menampilkan kembali di input)
     )
-    
 
-
-@admin_bp.route('/detail_kata/<int:id_kelompok>')
-def detail_kata(id_kelompok):
-    kata_detail = Kata.query.filter_by(id_kelompok=id_kelompok).all()
+@admin_bp.route('/detail_kata_data/<int:id_kelompok>', methods=['GET'])
+@login_required
+def detail_kata_data(id_kelompok):
+    """
+    Route khusus untuk mengembalikan detail kata (berdasarkan id_kelompok) dalam format JSON,
+    sehingga dapat diakses via AJAX tanpa pindah page.
+    """
+    # Query data detail
+    detail_kata = Kata.query.filter_by(id_kelompok=id_kelompok).all()
     varians = Varian.query.all()
-    
-    return render_template('admin/modal_detail_kata.html', 
-                           kata_detail=kata_detail, 
-                           varians=varians)
 
+    # Susun data JSON
+    data_detail = []
+    for item in detail_kata:
+        data_detail.append({
+            'konten': item.konten,
+            'jenis_varian': item.jenis_varian,
+            'status_validasi': item.status_validasi
+        })
+
+    # Kita juga kirim daftar varian agar front-end bisa menampilkan urutan varian
+    data_varians = [v.nama_varian for v in varians]
+
+    return jsonify({
+        'detail_kata': data_detail,
+        'varians': data_varians
+    })
 
 
 @admin_bp.route('/edit_kata/<int:id_kelompok>', methods=['POST'])

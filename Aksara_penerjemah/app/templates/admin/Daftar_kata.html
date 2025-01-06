@@ -43,13 +43,15 @@
                     <input type="text" id="searchInput" class="form-control" onkeyup="searchTable()" placeholder="Cari kata...">
                 </div> -->
 
-                <form method="POST">
+                <form method="GET" action="{{ url_for('admin.cari_kata') }}">
                     <div class="mb-3">
                       <label for="kata_query" class="form-label">Cari Kata:</label>
-                      <input type="text" id="kata_query" name="kata_query" class="form-control" placeholder="Cari kata...">
+                      <input type="text" id="kata_query" name="kata_query" class="form-control" 
+                             placeholder="Cari kata..." 
+                             value="{{ kata_query if kata_query else '' }}">
                     </div>
                     <button type="submit" class="btn btn-primary">Cari</button>
-                  </form>
+                </form>
 
                 <!-- Tabel daftar kata -->
                 <div class="table-responsive">
@@ -78,8 +80,11 @@
                                                 data-bs-target="#editKataModal{{ kata.id_kata }}">Edit</button>
                                             <button class="btn btn-danger btn-sm" data-bs-toggle="modal"
                                                 data-bs-target="#hapusKataModal{{ kata.id_kata }}">Hapus</button>
-                                            <button class="btn btn-info btn-sm" data-bs-toggle="modal"
-                                                data-bs-target="#detailKataModal{{ kata.id_kelompok }}">Detail</button>
+                                                <button class="btn btn-info btn-sm"
+                                                onclick="fetchDetailKata({{ kata.id_kelompok }})">
+                                            Detail
+                                        </button>
+                                        
                                         </div>
                                         <!-- Modal Edit -->
                                         <div class="modal fade" id="editKataModal{{ kata.id_kata }}" tabindex="-1"
@@ -147,41 +152,17 @@
                                         </div>
 
                                         <!-- Modal Detail -->
-                                        <div class="modal fade" id="detailKataModal{{ kata.id_kelompok }}" tabindex="-1"
-                                            aria-labelledby="detailKataModalLabel" aria-hidden="true">
+                                        <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailKataModalLabel" aria-hidden="true">
                                             <div class="modal-dialog modal-lg">
                                                 <div class="modal-content">
+                                                    <!-- Header -->
                                                     <div class="modal-header">
                                                         <h5 class="modal-title">Detail Kata</h5>
-                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
-                                                            aria-label="Close"></button>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                     </div>
-                                                    <div class="modal-body">
-                                                        <table class="table table-bordered">
-                                                            <thead>
-                                                                <tr>
-                                                                    {% for varian in varians %}
-                                                                    <th>{{ varian.nama_varian }}</th>
-                                                                    {% endfor %}
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                <tr>
-                                                                    {% for varian in varians %}
-                                                                    <td>
-                                                                        {% set kata = daftar_kata|selectattr('id_kelompok',
-                                                                        'equalto',
-                                                                        kata.id_kelompok)|selectattr('jenis_varian',
-                                                                        'equalto', varian.nama_varian)|first %}
-                                                                        {{ kata.konten if kata else '-' }}
-                                                                    </td>
-                                                                    {% endfor %}
-                                                                </tr>
-                                                            </tbody>
-                                                        </table>
-                                                    </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                                        
+                                                    <!-- Body: Menampilkan data detail -->
+                                                    <div class="modal-body" id="detailModalBody">
                                                     </div>
                                                 </div>
                                             </div>
@@ -309,34 +290,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        function filterTable() {
-            const filter = document.getElementById("filterVarian").value;
-            const table = document.getElementById("kataTable");
-            const rows = table.getElementsByTagName("tr");
-
-            for (let i = 1; i < rows.length; i++) {
-                const varianCell = rows[i].getElementsByTagName("td")[1];
-                if (varianCell) {
-                    const varianText = varianCell.textContent || varianCell.innerText;
-                    rows[i].style.display = varianText.includes(filter) || filter === "" ? "" : "none";
-                }
-            }
-        }
-
-        function searchTable() {
-            const input = document.getElementById("searchInput");
-            const filter = input.value.toUpperCase();
-            const table = document.getElementById("kataTable");
-            const rows = table.getElementsByTagName("tr");
-
-            for (let i = 1; i < rows.length; i++) {
-                const kataCell = rows[i].getElementsByTagName("td")[2];
-                if (kataCell) {
-                    const kataText = kataCell.textContent || kataCell.innerText;
-                    rows[i].style.display = kataText.toUpperCase().startsWith(filter) ? "" : "none";
-                }
-            }
-        }
+        
 
         function uploadCSV() {
             const fileInput = document.getElementById('csvFile');
@@ -415,6 +369,46 @@
                 })
                 .catch(error => console.error('Error:', error));
         }
+
+        function fetchDetailKata(idKelompok) {
+    // Panggil route AJAX JSON di server, misal "/admin/detail_kata_data/xxx"
+    fetch(`/admin/detail_kata_data/${idKelompok}`)
+        .then(response => response.json())
+        .then(data => {
+            /* 
+               data: { 
+                  detail_kata: [ { konten: "...", jenis_varian: "...", status_validasi: true/false }, ... ],
+                  varians: [ 'Varian1', 'Varian2', ... ]
+               } 
+            */
+
+            // Buat tabel HTML
+            let tableHTML = '<table class="table table-bordered"><thead><tr>';
+            data.varians.forEach(varian => {
+                tableHTML += `<th>${varian}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody><tr>';
+
+            data.varians.forEach(varian => {
+                // Cari item detail_kata yang jenis_varian == varian
+                let item = data.detail_kata.find(k => k.jenis_varian === varian);
+                tableHTML += `<td>${item ? item.konten : '-'}</td>`;
+            });
+
+            tableHTML += '</tr></tbody></table>';
+
+            // Masukkan ke div modal-body
+            document.getElementById('detailModalBody').innerHTML = tableHTML;
+
+            // Tampilkan modal
+            let myModal = new bootstrap.Modal(document.getElementById('detailModal'));
+            myModal.show();
+        })
+        .catch(err => {
+            console.error('Error fetch detail:', err);
+            alert('Gagal mengambil data detail.');
+        });
+}
     </script>
 </body>
 
