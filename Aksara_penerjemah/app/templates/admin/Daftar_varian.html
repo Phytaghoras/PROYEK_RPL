@@ -23,7 +23,7 @@
 
                 <!-- Tabel daftar varian -->
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped table-hover" id="varianTable">
                         <thead>
                             <tr>
                                 <th>No</th>
@@ -33,28 +33,39 @@
                         </thead>
                         <tbody>
                             {% for varian in varians %}
-                            <tr>
+                            <tr id="row-varian-{{ varian.id_varian }}">
                                 <td>{{ loop.index }}</td>
                                 <td>{{ varian.nama_varian }}</td>
                                 <td>
                                     <div class="d-flex gap-2">
-                                        <button class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#editVarianModal{{ varian.id_varian }}">Edit</button>
-                                        <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#hapusVarianModal{{ varian.id_varian }}">Hapus</button>
+                                        <button class="btn btn-warning btn-sm" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#editVarianModal{{ varian.id_varian }}">
+                                            Edit
+                                        </button>
+                                        <button class="btn btn-danger btn-sm"
+                                            onclick="showPasswordModal({{ varian.id_varian }}, '{{ varian.nama_varian }}')">
+                                            Hapus
+                                        </button>
                                     </div>
 
                                     <!-- Modal Edit Varian -->
-                                    <div class="modal fade" id="editVarianModal{{ varian.id_varian }}" tabindex="-1" aria-labelledby="editVarianModalLabel{{ varian.id_varian }}" aria-hidden="true">
+                                    <div class="modal fade" id="editVarianModal{{ varian.id_varian }}" 
+                                         tabindex="-1" aria-labelledby="editVarianModalLabel{{ varian.id_varian }}" aria-hidden="true">
                                         <div class="modal-dialog">
                                             <div class="modal-content">
                                                 <div class="modal-header">
                                                     <h5 class="modal-title" id="editVarianModalLabel{{ varian.id_varian }}">Edit Varian</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                                 </div>
                                                 <form method="POST" action="{{ url_for('admin.edit_varian', id_varian=varian.id_varian) }}">
                                                     <div class="modal-body">
                                                         <div class="mb-3">
                                                             <label for="nama_varian{{ varian.id_varian }}" class="form-label">Nama Varian</label>
-                                                            <input type="text" class="form-control" id="nama_varian{{ varian.id_varian }}" name="nama_varian" value="{{ varian.nama_varian }}" required>
+                                                            <input type="text" class="form-control" 
+                                                                   id="nama_varian{{ varian.id_varian }}" 
+                                                                   name="nama_varian" 
+                                                                   value="{{ varian.nama_varian }}" required>
                                                         </div>
                                                     </div>
                                                     <div class="modal-footer">
@@ -66,26 +77,8 @@
                                         </div>
                                     </div>
 
-                                    <!-- Modal Hapus Varian -->
-                                    <div class="modal fade" id="hapusVarianModal{{ varian.id_varian }}" tabindex="-1" aria-labelledby="hapusVarianModalLabel{{ varian.id_varian }}" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="hapusVarianModalLabel{{ varian.id_varian }}">Hapus Varian</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <p>Apakah Anda yakin ingin menghapus varian <strong>{{ varian.nama_varian }}</strong>?</p>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <form method="POST" action="{{ url_for('admin.hapus_varian', id_varian=varian.id_varian) }}">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tidak</button>
-                                                        <button type="submit" class="btn btn-danger">Iya</button>
-                                                    </form>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <!-- Modal Hapus Varian
+                                         [Di-REMOVE, karena kita pakai modal khusus password -> showPasswordModal()] -->
                                 </td>
                             </tr>
                             {% endfor %}
@@ -120,6 +113,93 @@
         </div>
     </div>
 
+    <!-- Modal Konfirmasi Password -->
+    <div class="modal fade" id="passwordModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Konfirmasi Hapus Varian</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p id="konfirmasiText"></p>
+            <div class="mb-3">
+              <label for="passwordField" class="form-label">Masukkan password:</label>
+              <input type="password" class="form-control" id="passwordField" placeholder="Password" required>
+            </div>
+            <small class="text-danger">
+              <em>Dengan menghapus varian ini, semua data Kata dan Kalimat yang menggunakan varian ini akan terhapus.</em>
+            </small>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="button" class="btn btn-danger" id="btnSubmitHapusVarian">
+              Hapus Varian
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    let selectedVarianId = null;
+    let selectedVarianName = null;
+
+    // Fungsi menampilkan modal password
+    function showPasswordModal(idVarian, namaVarian) {
+        selectedVarianId = idVarian;
+        selectedVarianName = namaVarian;
+        // Update teks peringatan
+        document.getElementById('konfirmasiText').innerHTML = 
+          `Anda yakin ingin menghapus varian <strong>${namaVarian}</strong>? 
+           Semua data Kata dan Kalimat dengan varian ini akan ikut terhapus.`;
+        
+        // Kosongkan input password
+        document.getElementById('passwordField').value = "";
+
+        // Tampilkan modal
+        let pwdModal = new bootstrap.Modal(document.getElementById('passwordModal'));
+        pwdModal.show();
+    }
+
+    // Event saat user klik tombol "Hapus Varian" di modal
+    document.getElementById('btnSubmitHapusVarian').addEventListener('click', function() {
+        let passwordInput = document.getElementById('passwordField').value.trim();
+        if (!passwordInput) {
+            alert("Password tidak boleh kosong.");
+            return;
+        }
+
+        // Kirim AJAX ke route hapus varian (mis: /admin/hapus_varian_ajax/<id>)
+        fetch(`/admin/hapus_varian_ajax/${selectedVarianId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: passwordInput })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Tutup modal
+                let pwdModalEl = document.getElementById('passwordModal');
+                let pwdModal = bootstrap.Modal.getInstance(pwdModalEl);
+                pwdModal.hide();
+
+                alert(data.message);
+
+                // Hapus row varian di tabel, agar tak perlu reload
+                let row = document.getElementById('row-varian-' + selectedVarianId);
+                if (row) row.remove();
+
+            } else {
+                alert(data.message || 'Terjadi kesalahan.');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('Gagal menghapus varian.');
+        });
+    });
+    </script>
 </body>
 </html>

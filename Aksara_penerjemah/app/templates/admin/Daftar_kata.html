@@ -289,28 +289,29 @@
     </div>
 
     <!-- Modal Upload CSV -->
-    <div class="modal fade" id="uploadCSVModal" tabindex="-1" aria-labelledby="uploadCSVModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="uploadCSVModalLabel">Upload File CSV</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="uploadCSVForm">
-                        <div class="mb-3">
-                            <label for="csvFile" class="form-label">Pilih file CSV:</label>
-                            <input type="file" class="form-control" id="csvFile" name="csvFile" accept=".csv">
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="button" class="btn btn-primary" onclick="uploadCSV()">Unggah</button>
-                </div>
+<div class="modal fade" id="uploadCSVModal" tabindex="-1" aria-labelledby="uploadCSVModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="uploadCSVModalLabel">Upload File CSV</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="uploadCSVForm">
+                    <div class="mb-3">
+                        <label for="csvFile" class="form-label">Pilih file CSV:</label>
+                        <input type="file" class="form-control" id="csvFile" name="csvFile" accept=".csv">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-primary" onclick="uploadCSV()">Unggah</button>
             </div>
         </div>
     </div>
+</div>
+
 
     <!-- Modal Preview CSV -->
     <div class="modal fade" id="previewCSVModal" tabindex="-1" aria-labelledby="previewCSVModalLabel" aria-hidden="true">
@@ -378,78 +379,62 @@
         // KODE UPLOAD CSV (sudah ada)
         // ===============================
         function uploadCSV() {
-            const fileInput = document.getElementById('csvFile');
-            const file = fileInput.files[0];
-            if (!file) {
-                alert('Harap pilih file CSV untuk diunggah.');
-                return;
-            }
+    const fileInput = document.getElementById('csvFile'); // ID input file CSV
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('Harap pilih file CSV untuk diunggah.');
+        return;
+    }
 
-            const formData = new FormData();
-            formData.append('file', file);
+    const formData = new FormData();
+    formData.append('file', file);
 
-            fetch('/admin/import/csv', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Tampilkan preview data
-                    const previewContainer = document.getElementById('previewTableContainer');
-                    let tableHTML = '<table class="table table-bordered"><thead><tr>';
-                    // Tambahkan header
-                    data.valid_columns.forEach(col => {
-                        tableHTML += `<th>${col}</th>`;
-                    });
-                    tableHTML += '</tr></thead><tbody>';
-                    // Tambahkan data baris
-                    data.preview.forEach(row => {
-                        tableHTML += '<tr>';
-                        row.forEach(cell => {
-                            tableHTML += `<td>${cell}</td>`;
-                        });
-                        tableHTML += '</tr>';
-                    });
-                    tableHTML += '</tbody></table>';
-
-                    previewContainer.innerHTML = tableHTML;
-                    // Tampilkan modal preview
-                    const previewModal = new bootstrap.Modal(document.getElementById('previewCSVModal'));
-                    previewModal.show();
-                } else {
-                    alert(data.message);
-                }
-            })
-            .catch(error => console.error('Error:', error));
+    fetch('/admin/import/csv', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(data.message);
+            window.location.reload(); // Reload halaman untuk memperbarui tabel
+        } else {
+            alert(data.message || 'Terjadi kesalahan saat mengunggah CSV.');
         }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Gagal mengunggah file CSV.');
+    });
+}
 
-        function confirmImport() {
-            const previewContainer = document.getElementById('previewTableContainer');
-            const rows = [];
-            const validColumns = [];
 
-            // Simpan data dari preview ke database
-            fetch('/admin/import/csv/confirm', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    rows: rows, // Data yang sesuai dari preview
-                    valid_columns: validColumns // Kolom valid dari preview
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert(data.message);
-                } else {
-                    alert(data.message);
-                }
-            })
-            .catch(error => console.error('Error:', error));
-        }
+        // function confirmImport() {
+        //     const previewContainer = document.getElementById('previewTableContainer');
+        //     const rows = [];
+        //     const validColumns = [];
+
+        //     // Simpan data dari preview ke database
+        //     fetch('/admin/import/csv/confirm', {
+        //         method: 'POST',
+        //         headers: {
+        //             'Content-Type': 'application/json',
+        //         },
+        //         body: JSON.stringify({
+        //             rows: rows, // Data yang sesuai dari preview
+        //             valid_columns: validColumns // Kolom valid dari preview
+        //         })
+        //     })
+        //     .then(response => response.json())
+        //     .then(data => {
+        //         if (data.status === 'success') {
+        //             alert(data.message);
+        //         } else {
+        //             alert(data.message);
+        //         }
+        //     })
+        //     .catch(error => console.error('Error:', error));
+        // }
 
         // ===============================
         // FUNGSI DETAIL (AJAX)

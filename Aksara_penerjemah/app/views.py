@@ -68,11 +68,47 @@ def admin_dashboard():
                            jumlah_varian=jumlah_varian)
 
 @role_required('admin')
-@login_required
 @admin_bp.route('/daftar_varian')
+@login_required
 def daftar_varian():
     varians = Varian.query.all()
     return render_template('admin/Daftar_varian.html', varians=varians)
+
+@admin_bp.route('/hapus_varian_ajax/<int:id_varian>', methods=['POST'])
+@login_required
+def hapus_varian_ajax(id_varian):
+    """
+    Hapus varian (dan semua data yang terkait) setelah verifikasi password, via AJAX.
+    JSON input: { "password": "..." }
+    JSON output: { "status": "success"/"error", "message": "..." }
+    """
+    varian = Varian.query.get_or_404(id_varian)
+
+    data = request.get_json()
+    if not data or 'password' not in data:
+        return jsonify({'status': 'error', 'message': 'No password provided.'}), 400
+    
+    password_input = data['password']
+
+    # Cek password
+    if not check_password_hash(current_user.kata_sandi, password_input):
+        return jsonify({'status': 'error', 'message': 'Password salah. Gagal menghapus varian.'}), 401
+
+    try:
+        # Hapus data Kata & Kalimat yang memakai varian
+        Kata.query.filter_by(jenis_varian=varian.nama_varian).delete(synchronize_session=False)
+        Kalimat.query.filter_by(jenis_varian=varian.nama_varian).delete(synchronize_session=False)
+
+        # Hapus varian itu sendiri
+        db.session.delete(varian)
+        db.session.commit()
+
+        return jsonify({'status': 'success',
+                        'message': f'Varian "{varian.nama_varian}" dan data terkait berhasil dihapus.'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 
 @admin_bp.route('/tambah_varian', methods=['POST'])
 def tambah_varian():
@@ -345,13 +381,11 @@ def export_kalimat_csv():
 @admin_bp.route('/import_kalimat/csv', methods=['POST'])
 def import_kalimat_csv():
     if 'file' not in request.files:
-        flash('Tidak ada file diunggah.', 'error')
-        return redirect(url_for('admin.daftar_kalimat'))
+        return jsonify({'status': 'error', 'message': 'Tidak ada file yang diunggah.'}), 400
 
     uploaded_file = request.files['file']
     if not uploaded_file.filename.endswith('.csv'):
-        flash('File harus berformat CSV.', 'error')
-        return redirect(url_for('admin.daftar_kalimat'))
+        return jsonify({'status': 'error', 'message': 'File harus berformat CSV.'}), 400
 
     try:
         file_content = uploaded_file.stream.read().decode('utf-8')
@@ -364,13 +398,11 @@ def import_kalimat_csv():
         kolom_valid = [h for h in header if h in daftar_varian]
 
         if len(kolom_valid) < 2:
-            flash('Minimal 2 kolom varian yang valid.', 'error')
-            return redirect(url_for('admin.daftar_kalimat'))
+            return jsonify({'status': 'error', 'message': 'Minimal 2 kolom varian yang valid.'}), 400
 
         total_rows = 0
         for row in csv_reader:
             if len(row) != len(header):
-                flash(f'Baris ke-{total_rows + 1} kolom tidak sesuai.', 'warning')
                 continue
 
             max_kelompok = db.session.query(func.max(Kalimat.id_kelompok)).scalar() or 0
@@ -392,14 +424,12 @@ def import_kalimat_csv():
                         total_rows += 1
 
         db.session.commit()
-        flash(f'{total_rows} kalimat berhasil diimpor.', 'success')
+        return jsonify({'status': 'success', 'message': f'{total_rows} kalimat berhasil diimpor.'}), 200
 
     except Exception as e:
         db.session.rollback()
-        flash(f'Gagal import CSV kalimat: {str(e)}', 'error')
-        logging.error(f'Error import kalimat CSV: {e}')
+        return jsonify({'status': 'error', 'message': f'Gagal mengimpor CSV: {str(e)}'}), 500
 
-    return redirect(url_for('admin.daftar_kalimat'))
 
 
 # ----------------------
@@ -651,55 +681,41 @@ def export_csv():
 # Rute untuk mengunggah file CSV
 @admin_bp.route('/import/csv', methods=['POST'])
 def import_csv():
-    # Cek apakah file diunggah
     if 'file' not in request.files:
-        flash('Tidak ada file yang diunggah.', 'error')
-        return redirect(url_for('admin.daftarkata'))
+        return jsonify({'status': 'error', 'message': 'Tidak ada file yang diunggah.'}), 400
 
     uploaded_file = request.files['file']
-
-    # Cek apakah file memiliki ekstensi .csv
     if not uploaded_file.filename.endswith('.csv'):
-        flash('File harus berformat CSV.', 'error')
-        return redirect(url_for('admin.daftarkata'))
+        return jsonify({'status': 'error', 'message': 'File harus berformat CSV.'}), 400
 
-    # Baca file CSV
     try:
         file_content = uploaded_file.stream.read().decode('utf-8')
         csv_reader = csv.reader(io.StringIO(file_content))
 
-        # Ambil header (baris pertama)
+        # Membaca header CSV
         header = next(csv_reader)
-        header = [col.strip() for col in header]  # Bersihkan spasi di header
-
-        # Validasi header
-        daftar_varian = [varian.nama_varian for varian in Varian.query.all()]
-        kolom_valid = [col for col in header if col in daftar_varian]
+        daftar_varian = [varian.nama_varian for varian in Varian.query.all()]  # Validasi kolom
+        kolom_valid = [h for h in header if h in daftar_varian]
 
         if len(kolom_valid) < 2:
-            flash('Minimal 2 kolom harus sesuai dengan varian yang ada.', 'error')
-            return redirect(url_for('admin.daftarkata'))
+            return jsonify({'status': 'error', 'message': 'Minimal 2 kolom varian yang valid.'}), 400
 
-        # Proses setiap baris data
         total_rows = 0
         for row in csv_reader:
             if len(row) != len(header):
-                flash(f'Baris {total_rows + 1} tidak valid: jumlah kolom tidak sesuai.', 'warning')
                 continue
 
-            # Buat kelompok baru
             max_kelompok = db.session.query(func.max(Kata.id_kelompok)).scalar() or 0
             new_kelompok_id = max_kelompok + 1
 
-            # Simpan data untuk setiap varian
-            for idx, kolom in enumerate(header):
-                if kolom in kolom_valid:
+            for idx, kol in enumerate(header):
+                if kol in kolom_valid:
                     konten = row[idx].strip()
-                    if konten:  # Hanya simpan jika konten tidak kosong
+                    if konten:
                         kata_baru = Kata(
                             konten=konten,
                             id_kelompok=new_kelompok_id,
-                            jenis_varian=kolom,
+                            jenis_varian=kol,
                             status_validasi=False,
                             created_by=current_user.id_pengguna,
                             created_at=datetime.utcnow()
@@ -707,16 +723,13 @@ def import_csv():
                         db.session.add(kata_baru)
                         total_rows += 1
 
-        # Commit ke database
         db.session.commit()
-        flash(f'{total_rows} kata berhasil diimpor.', 'success')
+        return jsonify({'status': 'success', 'message': f'{total_rows} kata berhasil diimpor.'}), 200
 
     except Exception as e:
         db.session.rollback()
-        flash(f'Gagal mengimpor CSV: {str(e)}', 'error')
-        logging.error(f'Error mengimpor CSV: {e}')
+        return jsonify({'status': 'error', 'message': f'Gagal mengimpor CSV: {str(e)}'}), 500
 
-    return redirect(url_for('admin.daftarkata'))
 
 # Rute untuk menyimpan data ke database setelah konfirmasi
 @admin_bp.route('/import/csv/confirm', methods=['POST'])
@@ -816,7 +829,7 @@ def proses_edit_user():
         db.session.rollback()
         flash(f'Error: {str(e)}', 'danger')
 
-    return redirect(url_for('admin.Kelola_user'))
+    return redirect(url_for('admin.kelola_user'))
 
 @validator_bp.route('/dashboard')
 def validator_dashboard():
@@ -837,62 +850,167 @@ def kontributor_dashboard():
 
 
 
-@validator_bp.route('/validasi', methods=['GET', 'POST'])
-def validasi_kata():
-    if request.method == 'POST':
-        # Ambil ID kata dan aksi dari form
-        id_kata = request.form.get('id_kata')
-        action = request.form.get('action')
-
-        # Cari kata berdasarkan ID
-        kata = Kata.query.get_or_404(id_kata)
-
-        try:
-            if action == 'terima':
-                # Ubah status validasi menjadi True
-                kata.status_validasi = True
-                kata.validated_by = current_user.id_pengguna
-                kata.validated_at = datetime.utcnow()
-                
-                # Log aktivitas validasi
-                log_validasi = LogAktivitas(
-                    id_pengguna=current_user.id_pengguna,
-                    jenis_aktivitas='Validasi Kata',
-                    detail_aktivitas=f'Kata "{kata.konten}" divalidasi'
-                )
-                db.session.add(log_validasi)
-                
-                flash('Kata berhasil divalidasi.', 'success')
-
-            elif action == 'tolak':
-                # Hapus kata dari database
-                db.session.delete(kata)
-                
-                # Log aktivitas penolakan
-                log_validasi = LogAktivitas(
-                    id_pengguna=current_user.id_pengguna,
-                    jenis_aktivitas='Penolakan Kata',
-                    detail_aktivitas=f'Kata "{kata.konten}" ditolak'
-                )
-                db.session.add(log_validasi)
-                
-                flash('Kata berhasil ditolak dan dihapus.', 'warning')
-
-            # Commit perubahan ke database
-            db.session.commit()
-
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Terjadi kesalahan: {str(e)}', 'danger')
-
-    # Untuk GET request, ambil daftar kata yang belum divalidasi
+@validator_bp.route('/validasi_data', methods=['GET'])
+def validasi_data():
+    """
+    Mengembalikan data kata atau kalimat yang belum divalidasi, 
+    dalam format JSON, sesuai parameter ?tipe=kata/kalimat.
+    Contoh: /validator/validasi_data?tipe=kalimat
+    """
+    tipe = request.args.get('tipe', 'kata')
     page = request.args.get('page', 1, type=int)
     per_page = 10
-    pagination = Kata.query.filter_by(status_validasi=False).paginate(page=page, per_page=per_page, error_out=False)
-    daftar_kata = pagination.items
-    varians = Varian.query.all()
 
-    return render_template('admin/Validator.html', 
-                           varians=varians, 
-                           daftar_kata=daftar_kata, 
-                           pagination=pagination)
+    if tipe == 'kalimat':
+        from .models import Kalimat
+        query = Kalimat.query.filter_by(status_validasi=False)
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        data_items = pagination.items
+
+        # Susun data JSON
+        data_list = []
+        for item in data_items:
+            data_list.append({
+                'id': item.id_kalimat,
+                'id_kelompok': item.id_kelompok,
+                'varian': item.jenis_varian,
+                'konten': item.konten,
+                'status_validasi': item.status_validasi
+            })
+
+        total_pages = pagination.pages
+        current_page = pagination.page
+
+        return jsonify({
+            'tipe': 'kalimat',
+            'items': data_list,
+            'current_page': current_page,
+            'total_pages': total_pages
+        })
+
+    else:
+        # Default kata
+        from .models import Kata
+        query = Kata.query.filter_by(status_validasi=False)
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        data_items = pagination.items
+
+        data_list = []
+        for item in data_items:
+            data_list.append({
+                'id': item.id_kata,
+                'id_kelompok': item.id_kelompok,
+                'varian': item.jenis_varian,
+                'konten': item.konten,
+                'status_validasi': item.status_validasi
+            })
+
+        total_pages = pagination.pages
+        current_page = pagination.page
+
+        return jsonify({
+            'tipe': 'kata',
+            'items': data_list,
+            'current_page': current_page,
+            'total_pages': total_pages
+        })
+
+
+@validator_bp.route('/validasi_action', methods=['POST'])
+def validasi_action():
+    """
+    Menerima JSON berisi:
+    {
+      'tipe': 'kata' or 'kalimat',
+      'id': <id_kata or id_kalimat>,
+      'action': 'terima' or 'tolak'
+    }
+    lalu mengupdate DB tanpa reload.
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'status': 'error', 'message': 'No data received'}), 400
+
+    tipe = data.get('tipe')
+    item_id = data.get('id')
+    action = data.get('action')
+
+    if not all([tipe, item_id, action]):
+        return jsonify({'status': 'error', 'message': 'Incomplete parameters'}), 400
+
+    if tipe == 'kalimat':
+        from .models import Kalimat
+        kalimat = Kalimat.query.get(item_id)
+        if not kalimat:
+            return jsonify({'status': 'error', 'message': 'Kalimat not found'}), 404
+        
+        if action == 'terima':
+            kalimat.status_validasi = True
+            kalimat.validated_by = current_user.id_pengguna
+            kalimat.validated_at = datetime.utcnow()
+            
+            # Log aktivitas (opsional)
+            log_validasi = LogAktivitas(
+                id_pengguna=current_user.id_pengguna,
+                jenis_aktivitas='Validasi Kalimat',
+                detail_aktivitas=f'Kalimat "{kalimat.konten}" divalidasi'
+            )
+            db.session.add(log_validasi)
+            
+            message = 'Kalimat berhasil divalidasi.'
+        elif action == 'tolak':
+            # Hapus kalimat
+            db.session.delete(kalimat)
+            log_penolakan = LogAktivitas(
+                id_pengguna=current_user.id_pengguna,
+                jenis_aktivitas='Penolakan Kalimat',
+                detail_aktivitas=f'Kalimat ditolak'
+            )
+            db.session.add(log_penolakan)
+            message = 'Kalimat berhasil ditolak dan dihapus.'
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid action'}), 400
+
+    else:
+        # tipe = 'kata'
+        from .models import Kata
+        kata = Kata.query.get(item_id)
+        if not kata:
+            return jsonify({'status': 'error', 'message': 'Kata not found'}), 404
+        
+        if action == 'terima':
+            kata.status_validasi = True
+            kata.validated_by = current_user.id_pengguna
+            kata.validated_at = datetime.utcnow()
+            
+            log_validasi = LogAktivitas(
+                id_pengguna=current_user.id_pengguna,
+                jenis_aktivitas='Validasi Kata',
+                detail_aktivitas=f'Kata "{kata.konten}" divalidasi'
+            )
+            db.session.add(log_validasi)
+
+            message = 'Kata berhasil divalidasi.'
+        elif action == 'tolak':
+            db.session.delete(kata)
+            log_penolakan = LogAktivitas(
+                id_pengguna=current_user.id_pengguna,
+                jenis_aktivitas='Penolakan Kata',
+                detail_aktivitas='Kata ditolak'
+            )
+            db.session.add(log_penolakan)
+            message = 'Kata berhasil ditolak dan dihapus.'
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid action'}), 400
+
+    try:
+        db.session.commit()
+        return jsonify({'status': 'success', 'message': message})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@validator_bp.route('/validasi')
+def validasi_page():
+    return render_template('admin/Validator.html')
+

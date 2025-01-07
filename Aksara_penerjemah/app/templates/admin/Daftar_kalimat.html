@@ -325,28 +325,35 @@
 
     // 2) UPLOAD CSV
     function uploadCSVKalimat() {
-        const fileInput = document.getElementById('csvFileKalimat');
-        const file = fileInput.files[0];
-        if (!file) {
-            alert('Harap pilih file CSV Kalimat.');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        fetch('/admin/import_kalimat/csv', {
-            method: 'POST',
-            body: formData
-        })
-        .then(res => {
-            // Karena route import_kalimat/csv memanggil flash + redirect,
-            // kita tidak akan dapat JSON di sini kecuali di-modif route-nya.
-            // Untuk sederhananya, reload halaman:
-            window.location.reload();
-        })
-        .catch(err => console.error('Error:', err));
+    const fileInput = document.getElementById('csvFileKalimat');
+    const file = fileInput.files[0];
+    if (!file) {
+        alert('Harap pilih file CSV Kalimat.');
+        return;
     }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/admin/import_kalimat/csv', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert(data.message);
+            window.location.reload(); // Reload untuk memperbarui tabel setelah unggah berhasil
+        } else {
+            alert(data.message || 'Terjadi kesalahan saat mengunggah CSV.');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Gagal mengunggah file CSV.');
+    });
+    }
+
 
     // 3) DETAIL KALIMAT (AJAX)
     function fetchDetailKalimat(idKelompok) {
