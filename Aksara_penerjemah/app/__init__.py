@@ -2,8 +2,14 @@ from flask import Flask
 from flask_migrate import Migrate
 from .config import Config
 from .models import db, Pengguna
-from .views import main, admin_bp, validator_bp, kontributor_bp
 from flask_login import LoginManager
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
+from .admin_views import admin_bp
+from .validator_views import validator_bp
+from .kontributor_views import kontributor_bp
+from .main_views import main
 
 migrate = Migrate()
 login_manager = LoginManager()
