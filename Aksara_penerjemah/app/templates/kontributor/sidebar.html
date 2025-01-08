@@ -1,39 +1,32 @@
-<div class="sidebar">
-  <div class="sidebar-logo">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo">
+<div class="d-flex flex-column vh-100 bg-light p-3">
+  <!-- Logo -->
+  <div class="mb-4 text-center">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="img-fluid" style="max-width: 80%;">
   </div>
   
-  <ul class="sidebar-menu">
-    {% if current_user.is_authenticated %}
-      {% if current_user.peran == 'admin' %}
-        <li class="sidebar-item"> <i class="sidebar-icon fas fa-home"></i>
-          <a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a>
-        </li>
-      {% elif current_user.peran == 'validator' %}
-        <li class="sidebar-item">
-          <a href="{{ url_for('validator.validator_dashboard') }}">Dashboard</a>
-        </li>
-      {% elif current_user.peran == 'kontributor' %}
-        <li class="sidebar-item">
-          <a href="{{ url_for('kontributor.kontributor_dashboard') }}">Dashboard</a>
-        </li>
-      {% else %}
-        <li class="sidebar-item">
-          <a href="{{ url_for('main.login') }}">Login</a>
-        </li>
-      {% endif %}
-    {% else %}
-      <li class="sidebar-item">
-        <a href="{{ url_for('main.login') }}">Login</a>
-      </li>
-    {% endif %}
+  <!-- Menu -->
+  <ul class="nav flex-column">
+    <li class="nav-item mb-2">
+      <a href="{{ url_for('kontributor.kontributor_dashboard') }}" class="nav-link text-dark">
+        <i class="fas fa-home me-2"></i>Dashboard
+      </a>
+    </li>
+    <li class="nav-item mb-2">
+      <a href="{{ url_for('kontributor.daftar_kalimat') }}" class="nav-link text-dark">
+        <i class="fas fa-file-alt me-2"></i>Daftar Kalimat
+      </a>
+    </li>
+    <li class="nav-item mb-2">
+      <a href="{{ url_for('kontributor.daftarkata') }}" class="nav-link text-dark">
+        <i class="fas fa-list me-2"></i>Daftar Kata
+      </a>
+    </li>
   </ul>
-  
-  {% if current_user.is_authenticated %}
-    <div class="user-menu">
 
-        <a href="{{ url_for('main.logout') }}">Logout</a>
-      </li>
-    </div>
+  <!-- User Menu -->
+  {% if current_user.is_authenticated %}
+  <div class="mt-auto text-center">
+    <a href="{{ url_for('main.logout') }}" title="Logout" class="btn btn-danger btn-sm w-100">{{ current_user.nama_pengguna }}</a>
+  </div>
   {% endif %}
 </div>
